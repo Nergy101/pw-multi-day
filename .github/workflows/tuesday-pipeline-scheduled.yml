@@ -27,6 +27,8 @@ jobs:
 
       - name: Find latest Monday pipeline run
         id: find-run
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Get the workflow ID for the Monday pipeline
           WORKFLOW_ID=$(gh api repos/${{ github.repository }}/actions/workflows/monday-pipeline-scheduled.yml --jq '.id')
