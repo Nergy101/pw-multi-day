@@ -59,19 +59,13 @@ test.describe('Generate Identifiers', () => {
         const jsonFilePath = join(outputDir, 'person-data.json');
         writeFileSync(jsonFilePath, JSON.stringify(persons, null, 2));
 
-        // Save data as CSV file for alternative format
-        const csvFilePath = join(outputDir, 'person-data.csv');
-        const csvHeader = 'id,firstName,lastName,email,phone,street,city,state,zipCode,country,company,jobTitle,createdAt\n';
-        const csvRows = persons.map(person =>
-            `${person.id},${person.firstName},${person.lastName},${person.email},${person.phone},${person.address.street},${person.address.city},${person.address.state},${person.address.zipCode},${person.address.country},${person.company},${person.jobTitle},${person.createdAt}`
-        ).join('\n');
-        writeFileSync(csvFilePath, csvHeader + csvRows);
+        // Note: Only generating JSON files for reliability - CSV generation removed
 
         // Save metadata about the generation
         const metadata = {
             generatedAt: new Date().toISOString(),
             recordCount: personCount,
-            format: ['json', 'csv'],
+            format: ['json'],
             fakerVersion: '8.3.1',
         };
         const metadataPath = join(outputDir, 'metadata.json');
@@ -79,11 +73,9 @@ test.describe('Generate Identifiers', () => {
 
         // Verify files were created
         const jsonExists = statSync(jsonFilePath).isFile();
-        const csvExists = statSync(csvFilePath).isFile();
         const metadataExists = statSync(metadataPath).isFile();
 
         expect(jsonExists).toBeTruthy();
-        expect(csvExists).toBeTruthy();
         expect(metadataExists).toBeTruthy();
 
         // Verify JSON content
@@ -97,7 +89,6 @@ test.describe('Generate Identifiers', () => {
         console.log(`✅ Generated ${personCount} person records`);
         console.log(`📁 Files saved to: ${outputDir}`);
         console.log(`📊 JSON: ${jsonFilePath}`);
-        console.log(`📊 CSV: ${csvFilePath}`);
         console.log(`📋 Metadata: ${metadataPath}`);
     });
 

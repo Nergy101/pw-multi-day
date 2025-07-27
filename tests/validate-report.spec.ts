@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { join } from 'node:path';
-import { parse } from 'csv';
 import { mkdirSync, statSync, readFileSync, writeFileSync } from 'node:fs';
 import { cwd } from 'node:process';
 
@@ -58,9 +57,8 @@ test.describe('Validate Report', () => {
             // Directory doesn't exist
         }
         if (!artifactsExist) {
-            console.log('⚠️  No downloaded artifacts found. Creating sample data for testing...');
-            // Create sample data for testing when artifacts are not available
-            await createSampleData(artifactsDir);
+            console.log('❌ No downloaded artifacts found. Validation test cannot proceed.');
+            throw new Error('No downloaded artifacts found. The Tuesday pipeline requires artifacts from the Monday pipeline to validate.');
         }
 
         const validationResult: ValidationResult = {
@@ -92,20 +90,7 @@ test.describe('Validate Report', () => {
             await validatePersonData(jsonData, validationResult);
         }
 
-        // Read and validate CSV data
-        const csvFilePath = join(artifactsDir, 'person-data.csv');
-        let csvExists = false;
-        try {
-            statSync(csvFilePath);
-            csvExists = true;
-        } catch {
-            // File doesn't exist
-        }
-        if (csvExists) {
-            console.log(`📖 Reading CSV data from: ${csvFilePath}`);
-            const csvData = await parseCSVData(csvFilePath);
-            await validatePersonData(csvData, validationResult);
-        }
+        // Note: Only using JSON files for reliability - CSV parsing removed
 
         // Read metadata
         const metadataPath = join(artifactsDir, 'metadata.json');
@@ -161,8 +146,8 @@ test.describe('Validate Report', () => {
             // Directory doesn't exist
         }
         if (!artifactsExist) {
-            console.log('⚠️  No downloaded artifacts found. Skipping integrity test.');
-            return;
+            console.log('❌ No downloaded artifacts found. Integrity test cannot proceed.');
+            throw new Error('No downloaded artifacts found. The Tuesday pipeline requires artifacts from the Monday pipeline to validate.');
         }
 
         const jsonFilePath = join(artifactsDir, 'person-data.json');
@@ -174,8 +159,8 @@ test.describe('Validate Report', () => {
             // File doesn't exist
         }
         if (!jsonExists) {
-            console.log('⚠️  No person-data.json found. Skipping integrity test.');
-            return;
+            console.log('❌ No person-data.json found. Integrity test cannot proceed.');
+            throw new Error('No person-data.json found in artifacts. The Tuesday pipeline requires valid data from the Monday pipeline to validate.');
         }
 
         const persons: PersonData[] = JSON.parse(readFileSync(jsonFilePath, 'utf8'));
@@ -270,96 +255,9 @@ async function validatePersonData(persons: PersonData[], result: ValidationResul
     result.summary.uniqueEmails = emails.size;
 }
 
-async function parseCSVData(csvFilePath: string): Promise<PersonData[]> {
-    const csvContent = readFileSync(csvFilePath, 'utf8');
-    const rows = parse(csvContent, { columns: true }) as unknown as any[];
-    const data: PersonData[] = [];
 
-    for (const row of rows) {
-        const person: any = {};
 
-        // Map CSV columns to PersonData structure
-        person.id = row.id;
-        person.firstName = row.firstName;
-        person.lastName = row.lastName;
-        person.email = row.email;
-        person.phone = row.phone;
-        person.address = {
-            street: row.street,
-            city: row.city,
-            state: row.state,
-            zipCode: row.zipCode,
-            country: row.country,
-        };
-        person.company = row.company;
-        person.jobTitle = row.jobTitle;
-        person.createdAt = row.createdAt;
 
-        data.push(person as PersonData);
-    }
-
-    return data;
-}
-
-async function createSampleData(artifactsDir: string) {
-    try {
-        mkdirSync(artifactsDir, { recursive: true });
-    } catch {
-        // Directory already exists
-    }
-
-    // Create sample person data for testing
-    const samplePersons: PersonData[] = [
-        {
-            id: '123e4567-e89b-12d3-a456-426614174000',
-            firstName: 'John',
-            lastName: 'Doe',
-            email: 'john.doe@example.com',
-            phone: '+1-555-123-4567',
-            address: {
-                street: '123 Main St',
-                city: 'New York',
-                state: 'NY',
-                zipCode: '10001',
-                country: 'USA',
-            },
-            company: 'Tech Corp',
-            jobTitle: 'Software Engineer',
-            createdAt: new Date().toISOString(),
-        },
-        {
-            id: '123e4567-e89b-12d3-a456-426614174001',
-            firstName: 'Jane',
-            lastName: 'Smith',
-            email: 'jane.smith@example.com',
-            phone: '+1-555-987-6543',
-            address: {
-                street: '456 Oak Ave',
-                city: 'Los Angeles',
-                state: 'CA',
-                zipCode: '90210',
-                country: 'USA',
-            },
-            company: 'Design Studio',
-            jobTitle: 'UX Designer',
-            createdAt: new Date().toISOString(),
-        },
-    ];
-
-    const jsonFilePath = join(artifactsDir, 'person-data.json');
-    writeFileSync(jsonFilePath, JSON.stringify(samplePersons, null, 2));
-
-    const metadata = {
-        generatedAt: new Date().toISOString(),
-        recordCount: samplePersons.length,
-        format: ['json'],
-        fakerVersion: '8.3.1',
-    };
-    const metadataPath = join(artifactsDir, 'metadata.json');
-    writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-
-    console.log(`📝 Created sample data in: ${artifactsDir}`);
-}
 
 function generateHumanReadableReport(result: ValidationResult): string {
     return `
