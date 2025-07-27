@@ -1,4 +1,4 @@
-name: Tuesday Pipeline - Scheduled
+name: ✅ Tuesday Pipeline - Scheduled
 
 on:
   schedule:
@@ -11,21 +11,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          deno-version: v1.x
+          node-version: "18"
+          cache: "npm"
 
-      - name: Install Playwright Browsers
-        run: deno task install
+      - name: 📦 Install Dependencies
+        run: npm ci
 
-      - name: Install Playwright Dependencies
-        run: deno cache --reload tests/
+      - name: 🌐 Install Playwright Browsers
+        run: npm run install
 
-      - name: Find latest Monday pipeline run
+      - name: 🔍 Find latest Monday pipeline run
         id: find-run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -45,56 +46,31 @@ jobs:
             exit 1
           fi
 
-      - name: Download Monday artifact
+      - name: ⬇️ Download Monday artifact
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "📥 Downloading artifact from run: ${{ steps.find-run.outputs.run_id }}"
-          gh run download ${{ steps.find-run.outputs.run_id }} --name identifier-data --dir downloaded-artifacts || {
-            echo "⚠️  Failed to download artifact using gh run download"
-            echo "💡 This could be because:"
-            echo "   - The artifact has expired"
-            echo "   - The artifact name is different"
-            echo "   - There are permission issues"
-            echo "   - The run doesn't exist"
-            exit 0  # Continue with fallback data
-          }
+          echo "Downloading artifact from run: ${{ steps.find-run.outputs.run_id }}"
+          gh run download ${{ steps.find-run.outputs.run_id }} --name identifier-data --dir downloaded-artifacts
 
-      - name: Check if artifact was downloaded
+      - name: 🔍 Check if artifact was downloaded
         id: check-artifact
         run: |
-          echo "🔍 Checking for downloaded artifacts..."
-          echo "📁 Current directory: $(pwd)"
-          echo "📁 Contents of downloaded-artifacts:"
-          ls -la downloaded-artifacts/ 2>/dev/null || echo "Directory doesn't exist or is empty"
-
           if [ -d "downloaded-artifacts" ] && [ "$(ls -A downloaded-artifacts)" ]; then
             echo "artifact_found=true" >> $GITHUB_OUTPUT
-            echo "✅ Monday artifact found and downloaded"
-            echo "📋 Files found:"
-            ls -la downloaded-artifacts/
+            echo "Monday artifact found and downloaded"
           else
             echo "artifact_found=false" >> $GITHUB_OUTPUT
-            echo "⚠️  Monday artifact not found - will use fallback data"
-            echo "💡 This could be because:"
-            echo "   - The Monday pipeline hasn't run yet"
-            echo "   - The artifact has expired (30-day retention)"
-            echo "   - The artifact is in a different repository"
-            echo "   - There was an issue with the download"
+            echo "Monday artifact not found"
           fi
 
-      - name: Run validation test using downloaded identifiers
+      - name: 🧪 Run validation test using downloaded identifiers
         run: |
           mkdir -p output
-          if [ "${{ steps.check-artifact.outputs.artifact_found }}" == "true" ]; then
-            cp -r downloaded-artifacts/* output/
-            echo "Using downloaded artifact data"
-          else
-            echo "Using fallback data (validation test will create sample data)"
-          fi
-          deno task test:validate
+          cp -r downloaded-artifacts/* output/
+          npm run test:validate
 
-      - name: Upload validation results
+      - name: 📤 Upload validation results
         uses: actions/upload-artifact@v4
         if: always()
         with:

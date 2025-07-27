@@ -1,4 +1,4 @@
-name: Monday Pipeline - Scheduled
+name: ⚙️ Monday Pipeline - Scheduled
 
 on:
   schedule:
@@ -14,21 +14,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@v1
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          deno-version: v1.x
+          node-version: "18"
+          cache: "npm"
 
-      - name: Install Playwright Browsers
-        run: deno task install
+      - name: 📦 Install Dependencies
+        run: npm ci
 
-      - name: Install Playwright Dependencies
-        run: deno cache --reload tests/
+      - name: 🌐 Install Playwright Browsers
+        run: npm run install
 
       - name: Generate identifiers and save output
         run: |
           mkdir -p output
-          deno task test:generate
+          npm run test:generate
 
       - name: Upload identifier artifact
         uses: actions/upload-artifact@v4
