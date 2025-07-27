@@ -25,19 +25,64 @@ jobs:
       - name: Install Playwright Dependencies
         run: deno cache --reload tests/
 
+      - name: Find latest Monday pipeline run
+        id: find-run
+        run: |
+          # Get the workflow ID for the Monday pipeline
+          WORKFLOW_ID=$(gh api repos/${{ github.repository }}/actions/workflows/monday-pipeline-scheduled.yml --jq '.id')
+
+          # Find the most recent successful run of the Monday pipeline
+          LATEST_RUN=$(gh api repos/${{ github.repository }}/actions/workflows/$WORKFLOW_ID/runs \
+            --jq '.workflow_runs[] | select(.conclusion == "success") | .id' | head -1)
+
+          if [ -n "$LATEST_RUN" ]; then
+            echo "run_id=$LATEST_RUN" >> $GITHUB_OUTPUT
+            echo "Found Monday pipeline run: $LATEST_RUN"
+          else
+            echo "No successful Monday pipeline run found"
+            exit 1
+          fi
+
       - name: Download Monday artifact
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: identifier-data
           path: downloaded-artifacts
-          # Note: This will download from the most recent successful run
-          # You may need to adjust this based on your specific needs
-          # For downloading from a specific workflow run, you'd need additional setup
+          run-id: ${{ steps.find-run.outputs.run_id }}
+
+      - name: Check if artifact was downloaded
+        id: check-artifact
+        run: |
+          echo "🔍 Checking for downloaded artifacts..."
+          echo "📁 Current directory: $(pwd)"
+          echo "📁 Contents of downloaded-artifacts:"
+          ls -la downloaded-artifacts/ 2>/dev/null || echo "Directory doesn't exist or is empty"
+
+          if [ -d "downloaded-artifacts" ] && [ "$(ls -A downloaded-artifacts)" ]; then
+            echo "artifact_found=true" >> $GITHUB_OUTPUT
+            echo "✅ Monday artifact found and downloaded"
+            echo "📋 Files found:"
+            ls -la downloaded-artifacts/
+          else
+            echo "artifact_found=false" >> $GITHUB_OUTPUT
+            echo "⚠️  Monday artifact not found - will use fallback data"
+            echo "💡 This could be because:"
+            echo "   - The Monday pipeline hasn't run yet"
+            echo "   - The artifact has expired (30-day retention)"
+            echo "   - The artifact is in a different repository"
+            echo "   - There was an issue with the download"
+          fi
 
       - name: Run validation test using downloaded identifiers
         run: |
           mkdir -p output
-          cp -r downloaded-artifacts/* output/
+          if [ "${{ steps.check-artifact.outputs.artifact_found }}" == "true" ]; then
+            cp -r downloaded-artifacts/* output/
+            echo "Using downloaded artifact data"
+          else
+            echo "Using fallback data (validation test will create sample data)"
+          fi
           deno task test:validate
 
       - name: Upload validation results
