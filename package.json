@@ -1,0 +1,21 @@
+{
+  "name": "playwright-trial",
+  "version": "1.0.0",
+  "description": "Playwright testing with faker-js data generation",
+  "scripts": {
+    "test": "playwright test",
+    "test:generate": "playwright test tests/generate-identifiers.spec.ts",
+    "test:validate": "playwright test tests/validate-report.spec.ts",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "install": "playwright install"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^8.3.1",
+    "@playwright/test": "^1.40.0",
+    "csv": "^6.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0"
+  }
+}

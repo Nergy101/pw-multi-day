@@ -1,0 +1,38 @@
+name: Monday Pipeline - Scheduled
+
+on:
+  schedule:
+    # Monday 9 AM UTC
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  generate-identifiers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Install Playwright Browsers
+        run: deno task install
+
+      - name: Install Playwright Dependencies
+        run: deno cache --reload tests/
+
+      - name: Generate identifiers and save output
+        run: |
+          mkdir -p output
+          deno task test:generate
+
+      - name: Upload identifier artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: identifier-data
+          path: output/
+          retention-days: 30

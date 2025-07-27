@@ -1,0 +1,49 @@
+name: Tuesday Pipeline - Scheduled
+
+on:
+  schedule:
+    # Tuesday 9 AM UTC
+    - cron: "0 9 * * 2"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  validate-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+
+      - name: Install Playwright Browsers
+        run: deno task install
+
+      - name: Install Playwright Dependencies
+        run: deno cache --reload tests/
+
+      - name: Download Monday artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: identifier-data
+          path: downloaded-artifacts
+          # Note: This will download from the most recent successful run
+          # You may need to adjust this based on your specific needs
+          # For downloading from a specific workflow run, you'd need additional setup
+
+      - name: Run validation test using downloaded identifiers
+        run: |
+          mkdir -p output
+          cp -r downloaded-artifacts/* output/
+          deno task test:validate
+
+      - name: Upload validation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-results
+          path: output/
+          retention-days: 30
